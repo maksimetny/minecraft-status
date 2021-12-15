@@ -6,6 +6,10 @@
 
 A observable-based Minecraft server status for Node.js
 
+## Installing
+
+`npm i node-minecraft-status`
+
 ## Usage
 
 ```typescript
