@@ -33,7 +33,7 @@ export interface IChat {
   strikethrough?: boolean; // m
   obfuscated?: boolean; // k
   color?: ChatColor;
-  extra?: IChat;
+  extra?: IChat[];
 }
 
 export interface IHandshakeResponse {
