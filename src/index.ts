@@ -1,6 +1,6 @@
 import { Observable } from 'rxjs';
 import { scan, takeLast, map } from 'rxjs/operators';
-import { createConnection } from 'net';
+import { connect } from 'net';
 import { encode, encodingLength } from 'varint';
 
 const DEFAULT_PORT = 25565;
@@ -67,45 +67,43 @@ export function ping(
   timeout: number = DEFAULT_TIMEOUT,
 ): Observable<IHandshakeResponse> {
   return new Observable<Buffer>((sub) => {
-    const connection = createConnection(
-      {
-        host,
-        port,
-        timeout,
-      },
-      () => {
-        connection
-          .once('timeout', () => {
-            connection.destroy();
-            sub.error(new Error('Socket timeout'));
-          })
-          .once('close', () => {
-            sub.complete();
-          })
-          .once('error', (err) => {
-            sub.error(err);
-          })
-          .on('data', (data) => {
-            sub.next(data);
-            connection.end();
-          })
-          .write(
-            Buffer.concat([
-              createPacket(
-                0,
-                Buffer.concat([
-                  Buffer.from(encode(-1)), // protocol version
-                  Buffer.from(encode(host.length)),
-                  Buffer.from(host),
-                  Buffer.alloc(2, port),
-                  Buffer.from(encode(1)), // next state
-                ]),
-              ), // handshake
-              createPacket(0, Buffer.alloc(0)), // request
-            ]),
-          );
-      },
-    );
+    const connection = connect({
+      host,
+      port,
+      timeout,
+    })
+      .once('connect', () => {
+        connection.write(
+          Buffer.concat([
+            createPacket(
+              0,
+              Buffer.concat([
+                Buffer.from(encode(-1)), // protocol version
+                Buffer.from(encode(host.length)),
+                Buffer.from(host),
+                Buffer.alloc(2, port),
+                Buffer.from(encode(1)), // next state
+              ]),
+            ), // handshake
+            createPacket(0, Buffer.alloc(0)), // request
+          ]),
+        );
+      })
+      .once('timeout', () => {
+        connection.destroy();
+        sub.error(new Error('Socket timeout'));
+      })
+      .once('close', () => {
+        sub.complete();
+      })
+      .once('error', (err) => {
+        sub.error(err);
+      })
+      .on('data', (data) => {
+        sub.next(data);
+        connection.end();
+      });
+
     return function unsubscribe() {
       connection.destroy();
     }
