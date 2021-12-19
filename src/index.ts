@@ -111,7 +111,9 @@ export function ping(
     .pipe(
       scan((response, data) => Buffer.concat([response, data])),
       takeLast(1),
-      map((response) => response.slice(5).toString()),
-      map((response) => JSON.parse(response)),
+      map((response) => response.slice(encodingLength(response.length) * 2 + 1)),
+      map((payload) => {
+        return JSON.parse(payload.toString());
+      }),
     );
 }
