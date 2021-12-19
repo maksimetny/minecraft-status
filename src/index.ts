@@ -68,7 +68,7 @@ export function ping(
   timeout: number = DEFAULT_TIMEOUT,
   protocol: number = DEFAULT_PROTOCOL,
 ): Observable<IHandshakeResponse> {
-  return new Observable<Buffer>((sub) => {
+  return new Observable<Buffer>((subscriber) => {
     const connection = connect({
       host,
       port,
@@ -92,22 +92,19 @@ export function ping(
       })
       .once('timeout', () => {
         connection.destroy();
-        sub.error(new Error('Socket timeout'));
+        subscriber.error(new Error('Socket timeout'));
       })
       .once('close', () => {
-        sub.complete();
+        if (connection.bytesRead) return subscriber.complete();
+        subscriber.error(new Error('Socket has not received data'));
       })
-      .once('error', (err) => {
-        sub.error(err);
-      })
+      .once('error', (err) => subscriber.error(err))
       .on('data', (data) => {
-        sub.next(data);
+        subscriber.next(data);
         connection.end();
       });
 
-    return function unsubscribe() {
-      connection.destroy();
-    }
+    return () => connection.destroy();
   })
     .pipe(
       scan((response, data) => Buffer.concat([response, data])),
