@@ -3,6 +3,7 @@ import { scan, takeLast, map } from 'rxjs/operators';
 import { connect } from 'net';
 import { encode, encodingLength } from 'varint';
 
+const DEFAULT_PROTOCOL = 757;
 const DEFAULT_PORT = 25565;
 const DEFAULT_TIMEOUT = 3600;
 
@@ -65,6 +66,7 @@ export function ping(
   host: string,
   port: number = DEFAULT_PORT,
   timeout: number = DEFAULT_TIMEOUT,
+  protocol: number = DEFAULT_PROTOCOL,
 ): Observable<IHandshakeResponse> {
   return new Observable<Buffer>((sub) => {
     const connection = connect({
@@ -73,21 +75,20 @@ export function ping(
       timeout,
     })
       .once('connect', () => {
-        connection.write(
-          Buffer.concat([
-            createPacket(
-              0,
-              Buffer.concat([
-                Buffer.from(encode(-1)), // protocol version
-                Buffer.from(encode(host.length)),
-                Buffer.from(host),
-                Buffer.alloc(2, port),
-                Buffer.from(encode(1)), // next state
-              ]),
-            ), // handshake
-            createPacket(0, Buffer.alloc(0)), // request
-          ]),
-        );
+        const encodedPort = Buffer.alloc(2);
+        encodedPort.writeUInt16BE(port);
+
+        const payload = Buffer.concat([
+          Buffer.from(encode(protocol)),
+          Buffer.from(encode(host.length)),
+          Buffer.from(host),
+          encodedPort,
+          Buffer.from(encode(1)), // next state
+        ]);
+        const handshake = createPacket(0, payload);
+        const request = createPacket(0, Buffer.alloc(0));
+
+        connection.write(Buffer.concat([handshake, request]));
       })
       .once('timeout', () => {
         connection.destroy();
