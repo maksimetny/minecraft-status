@@ -20,6 +20,8 @@ ping('play.hypixel.net').subscribe((response) => console.log(response));
 ## TODO
 
 - [x] ping
+- [ ] server latency
+- [ ] support legacy versions (< 1.6)
 - [ ] formatting response
 - [ ] resolving srv records
 - [ ] query
