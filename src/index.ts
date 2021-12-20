@@ -37,7 +37,7 @@ export interface IChat {
   extra?: IChat[];
 }
 
-export interface IHandshakeResponse {
+export interface IPingResponse {
   version: {
     name: string;
     protocol: number;
@@ -54,64 +54,103 @@ export interface IHandshakeResponse {
   description: string | IChat;
 }
 
-function createPacket(packetId: number, payload: Buffer): Buffer {
-  return Buffer.concat([
-    Buffer.from(encode(encodingLength(packetId) + payload.length)),
-    Buffer.from(encode(packetId)),
-    payload,
-  ]);
+abstract class PingStrategy {
+  abstract createHandshakePacket(): Buffer;
+  abstract parse(response: Buffer): IPingResponse;
 }
 
-export function ping(
-  host: string,
-  port: number = DEFAULT_PORT,
-  timeout: number = DEFAULT_TIMEOUT,
-  protocol: number = DEFAULT_PROTOCOL,
-): Observable<IHandshakeResponse> {
-  return new Observable<Buffer>((subscriber) => {
-    const connection = connect({
-      host,
-      port,
-      timeout,
+export class CurrentPingStrategy extends PingStrategy {
+  constructor(
+    private _host: string,
+    private _port: number,
+    private _protocol: number = DEFAULT_PROTOCOL,
+  ) {
+    super();
+  }
+
+  createHandshakePacket(): Buffer {
+    const encodedPort = Buffer.alloc(2);
+    encodedPort.writeUInt16BE(this._port);
+
+    const payload = Buffer.concat([
+      Buffer.from(encode(this._protocol)),
+      Buffer.from(encode(this._host.length)),
+      Buffer.from(this._host),
+      encodedPort,
+      Buffer.from(encode(1)), // next state
+    ]);
+    const handshake = this.createPacket(0, payload);
+    const request = this.createPacket(0, Buffer.alloc(0));
+
+    return Buffer.concat([handshake, request]);
+  }
+
+  parse(response: Buffer): IPingResponse {
+    const payload = response.slice(encodingLength(response.length) * 2 + 1);
+    return JSON.parse(payload.toString());
+  }
+
+  createPacket(packetId: number, payload: Buffer): Buffer {
+    return Buffer.concat([
+      Buffer.from(encode(encodingLength(packetId) + payload.length)),
+      Buffer.from(encode(packetId)),
+      payload,
+    ]);
+  }
+}
+
+export class PingContext {
+  private _strategy?: PingStrategy;
+
+  constructor(
+    private _timeout: number = DEFAULT_TIMEOUT,
+  ) { }
+
+  ping(
+    host: string,
+    port: number = DEFAULT_PORT,
+  ) {
+    if (!this._strategy) this._strategy = new CurrentPingStrategy(host, port);
+    return new Observable<Buffer>((subscriber) => {
+      const connection = connect({
+        host,
+        port,
+        timeout: this._timeout,
+      })
+        .once('connect', () => {
+          const handshakePacket = this._strategy!.createHandshakePacket();
+          connection.write(handshakePacket);
+        })
+        .once('timeout', () => {
+          connection.destroy();
+          subscriber.error(new Error('Socket timeout'));
+        })
+        .once('close', () => {
+          if (connection.bytesRead) return subscriber.complete();
+          subscriber.error(new Error('Socket has not received data'));
+        })
+        .once('error', (err) => subscriber.error(err))
+        .on('data', (data) => {
+          subscriber.next(data);
+          connection.end();
+        });
+
+      return () => connection.destroy();
     })
-      .once('connect', () => {
-        const encodedPort = Buffer.alloc(2);
-        encodedPort.writeUInt16BE(port);
+      .pipe(
+        scan((response, chunk) => Buffer.concat([response, chunk])),
+        takeLast(1),
+        map((response) => this._strategy!.parse(response)),
+      );
+  }
 
-        const payload = Buffer.concat([
-          Buffer.from(encode(protocol)),
-          Buffer.from(encode(host.length)),
-          Buffer.from(host),
-          encodedPort,
-          Buffer.from(encode(1)), // next state
-        ]);
-        const handshake = createPacket(0, payload);
-        const request = createPacket(0, Buffer.alloc(0));
+  setStrategy(strategy: PingStrategy): this {
+    this._strategy = strategy;
+    return this;
+  }
 
-        connection.write(Buffer.concat([handshake, request]));
-      })
-      .once('timeout', () => {
-        connection.destroy();
-        subscriber.error(new Error('Socket timeout'));
-      })
-      .once('close', () => {
-        if (connection.bytesRead) return subscriber.complete();
-        subscriber.error(new Error('Socket has not received data'));
-      })
-      .once('error', (err) => subscriber.error(err))
-      .on('data', (data) => {
-        subscriber.next(data);
-        connection.end();
-      });
-
-    return () => connection.destroy();
-  })
-    .pipe(
-      scan((response, data) => Buffer.concat([response, data])),
-      takeLast(1),
-      map((response) => response.slice(encodingLength(response.length) * 2 + 1)),
-      map((payload) => {
-        return JSON.parse(payload.toString());
-      }),
-    );
+  setTimeout(timeout: number): this {
+    this._timeout = timeout;
+    return this;
+  }
 }
