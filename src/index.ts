@@ -38,10 +38,6 @@ export interface IChat {
 }
 
 export interface IPingResponse {
-  version: {
-    name: string;
-    protocol: number;
-  };
   players: {
     online: number;
     max: number;
@@ -49,6 +45,10 @@ export interface IPingResponse {
       id: string;
       name: string;
     }[];
+  };
+  version?: {
+    name: string;
+    protocol: number;
   };
   favicon?: string;
   description: string | IChat;
@@ -99,17 +99,50 @@ export class CurrentPingStrategy extends PingStrategy {
   }
 }
 
-export class PingContext {
-  private _strategy?: PingStrategy;
+export class LegacyPingStrategy extends PingStrategy {
+  createHandshakePacket(): Buffer {
+    return Buffer.from([0xFE, 0x01, 0xFA]);
+  }
 
+  parse(response: Buffer): IPingResponse {
+    const payload = response.slice(4).toString('utf16le');
+
+    if (/^§1/.test(payload)) {
+      const [protocol, versionId, motd, online, max] = payload.split('\0').slice(1);
+      return {
+        version: {
+          name: versionId,
+          protocol: parseInt(protocol, 10),
+        },
+        players: {
+          max: parseInt(max, 10),
+          online: parseInt(online, 10),
+        },
+        description: motd,
+      };
+    }
+
+    const [motd, online, max] = payload.split('§');
+    return {
+      description: motd,
+      players: {
+        max: parseInt(max, 10),
+        online: parseInt(online, 10),
+      },
+    };
+  }
+}
+
+export class PingContext {
   constructor(
+    private _strategy?: PingStrategy,
     private _timeout: number = DEFAULT_TIMEOUT,
-  ) { }
+  ) {}
 
   ping(
     host: string,
     port: number = DEFAULT_PORT,
-  ) {
+  ): Observable<IPingResponse> {
     if (!this._strategy) this._strategy = new CurrentPingStrategy(host, port);
     return new Observable<Buffer>((subscriber) => {
       const connection = connect({
