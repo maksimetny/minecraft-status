@@ -13,8 +13,10 @@ A observable-based Minecraft server status for Node.js
 ## Usage
 
 ```typescript
-import { ping } from 'node-minecraft-status';
-ping('play.hypixel.net').subscribe((response) => console.log(response));
+import { PingContext } from 'node-minecraft-status';
+
+const client = new PingContext();
+client.ping('play.hypixel.net').subscribe((response) => console.log(response));
 ```
 
 ## TODO
