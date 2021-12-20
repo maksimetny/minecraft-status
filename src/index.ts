@@ -144,7 +144,10 @@ export class PingContext {
     port: number = DEFAULT_PORT,
   ): Observable<IPingResponse> {
     if (!this._strategy) this._strategy = new CurrentPingStrategy(host, port);
+
     return new Observable<Buffer>((subscriber) => {
+      let error: Error;
+
       const connection = connect({
         host,
         port,
@@ -155,14 +158,15 @@ export class PingContext {
           connection.write(handshakePacket);
         })
         .once('timeout', () => {
-          connection.destroy();
-          subscriber.error(new Error('Socket timeout'));
+          connection.destroy(new Error('Socket timeout'));
         })
-        .once('close', () => {
+        .once('close', (hasError) => {
+          if (hasError) return subscriber.error(error);
           if (connection.bytesRead) return subscriber.complete();
+
           subscriber.error(new Error('Socket has not received data'));
         })
-        .once('error', (err) => subscriber.error(err))
+        .once('error', (err) => error = err)
         .on('data', (data) => {
           subscriber.next(data);
           connection.end();
