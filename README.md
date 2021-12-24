@@ -6,11 +6,11 @@
 
 A observable-based Minecraft server status for Node.js
 
-## Installing
+## Installing :package:
 
 `npm i node-minecraft-status`
 
-## Usage
+## Usage :rocket:
 
 Basic example:
 
@@ -24,21 +24,29 @@ client.ping('play.hypixel.net').subscribe((response) => console.log(response));
 With support legacy protocol:
 
 ```typescript
+import { PingContext } from 'node-minecraft-status';
+
 const client = new PingContext();
-client
-  .ping('localhost')
-  .pipe(
-    retryWhen((errors) => errors.pipe(
-      delay(5000),
-      tap((err) => {
-        console.log(err);
-        console.log('retrying with legacy protocol..');
-        client.setStrategy(new LegacyPingStrategy());
-      }),
-    )),
-  )
+
+client.ping('hypixel.net')
   .subscribe({
     next(response) {
+      // {
+      //   host            // resolved hostname
+      //   port            // resolved port
+      //   version: {
+      //     name
+      //     protocol
+      //   }               // only 1.6+
+      //   players: {
+      //     max
+      //     online
+      //     sample        // only 1.6+
+      //   }
+      //   description
+      //   favicon         // only 1.6+
+      //   ip              // when received domain name
+      // }
       console.log(response);
     },
     error(err) {
@@ -50,15 +58,15 @@ client
   });
 ```
 
-## TODO
+## TODO :memo:
 
 - [x] ping
 - [ ] server latency
 - [x] support legacy versions (< 1.6)
 - [ ] formatting response
-- [ ] resolving srv records
+- [x] resolving srv records
 - [ ] query
 
-## License
+## License :page_with_curl:
 
 The MIT License. See [LICENSE](LICENSE) file.
