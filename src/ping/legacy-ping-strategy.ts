@@ -1,16 +1,17 @@
 import { PingStrategy } from './ping-strategy';
-import { IPingResponse } from './ping-response';
+import { IRawPingResponse } from './ping-response';
 
 export class LegacyPingStrategy extends PingStrategy {
   createHandshakePacket(): Buffer {
     return Buffer.from([0xFE, 0x01, 0xFA]);
   }
 
-  parse(response: Buffer): IPingResponse {
+  parse(response: Buffer): IRawPingResponse {
     const payload = response.slice(4).toString('utf16le');
 
     if (/^§1/.test(payload)) {
       const [protocol, versionId, motd, online, max] = payload.split('\0').slice(1);
+
       return {
         version: {
           name: versionId,
@@ -25,6 +26,7 @@ export class LegacyPingStrategy extends PingStrategy {
     }
 
     const [motd, online, max] = payload.split('§');
+
     return {
       description: motd,
       players: {

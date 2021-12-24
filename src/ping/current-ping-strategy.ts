@@ -2,7 +2,7 @@ import { encode, encodingLength } from 'varint';
 
 import { DEFAULT_PROTOCOL } from './constants';
 import { PingStrategy } from './ping-strategy';
-import { IPingResponse } from './ping-response';
+import { IRawPingResponse } from './ping-response';
 
 export class CurrentPingStrategy extends PingStrategy {
   constructor(
@@ -30,8 +30,9 @@ export class CurrentPingStrategy extends PingStrategy {
     return Buffer.concat([handshake, request]);
   }
 
-  parse(response: Buffer): IPingResponse {
+  parse(response: Buffer): IRawPingResponse {
     const payload = response.slice(encodingLength(response.length) * 2 + 1);
+
     return JSON.parse(payload.toString());
   }
 

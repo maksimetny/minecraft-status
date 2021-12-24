@@ -41,6 +41,8 @@ export class PingContext {
   }
 
   private _ping(host: string, port: number): Observable<IPingResponse> {
+    let ip: string;
+
     return new Observable<Buffer>((subscriber) => {
       let error: Error;
 
@@ -55,6 +57,9 @@ export class PingContext {
         })
         .once('timeout', () => {
           connection.destroy(new Error('Socket timeout'));
+        })
+        .once('lookup', (err, address) => {
+          if (!err) ip = address;
         })
         .once('close', (hasError) => {
           if (hasError) return subscriber.error(error);
@@ -75,6 +80,13 @@ export class PingContext {
         scan((response, chunk) => Buffer.concat([response, chunk])),
         takeLast(1),
         map((response) => this._strategy!.parse(response)),
+        map((response) => {
+          const final: IPingResponse = { host, port, ...response };
+
+          if (ip) final.ip = ip;
+
+          return final;
+        }),
       );
   }
 

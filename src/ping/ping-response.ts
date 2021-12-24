@@ -28,7 +28,7 @@ export interface IChat {
   extra?: IChat[];
 }
 
-export interface IPingResponse {
+export interface IRawPingResponse {
   players: {
     online: number;
     max: number;
@@ -43,4 +43,10 @@ export interface IPingResponse {
   };
   favicon?: string;
   description: string | IChat;
+}
+
+export interface IPingResponse extends IRawPingResponse {
+  host: string;
+  port: number;
+  ip?: string;
 }
