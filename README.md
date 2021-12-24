@@ -12,17 +12,6 @@ A observable-based Minecraft server status for Node.js
 
 ## Usage :rocket:
 
-Basic example:
-
-```typescript
-import { PingContext } from 'node-minecraft-status';
-
-const client = new PingContext();
-client.ping('play.hypixel.net').subscribe((response) => console.log(response));
-```
-
-With support legacy protocol:
-
 ```typescript
 import { PingContext } from 'node-minecraft-status';
 
@@ -34,6 +23,7 @@ client.ping('hypixel.net')
       // {
       //   host            // resolved hostname
       //   port            // resolved port
+      //   ip              // when received domain name
       //   version: {
       //     name
       //     protocol
@@ -45,7 +35,6 @@ client.ping('hypixel.net')
       //   }
       //   description
       //   favicon         // only 1.6+
-      //   ip              // when received domain name
       // }
       console.log(response);
     },
