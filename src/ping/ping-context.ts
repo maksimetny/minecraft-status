@@ -1,25 +1,30 @@
-import { iif, Observable } from 'rxjs';
+import { iif, timer, throwError, Observable, of } from 'rxjs';
 import {
   scan,
   take,
   takeLast,
   map,
   switchMap,
+  mergeMap,
   defaultIfEmpty,
+  retryWhen,
+  catchError,
 } from 'rxjs/operators';
 import { connect, isIP } from 'net';
 
 import { resolveSrv } from '../util';
 
-import { DEFAULT_TIMEOUT, DEFAULT_PORT } from './constants';
+import { DEFAULT_SOCKET_TIMEOUT, DEFAULT_RETRY_TIMEOUT, DEFAULT_PORT } from './constants';
 import { PingStrategy } from './ping-strategy';
 import { CurrentPingStrategy } from './current-ping-strategy';
+import { LegacyPingStrategy } from './legacy-ping-strategy';
 import { IPingResponse } from './ping-response';
 
 export class PingContext {
   constructor(
     private _strategy?: PingStrategy,
-    private _timeout: number = DEFAULT_TIMEOUT,
+    private _socketTimeout = DEFAULT_SOCKET_TIMEOUT,
+    private _retryTimeout = DEFAULT_RETRY_TIMEOUT,
   ) { }
 
   ping(
@@ -35,6 +40,7 @@ export class PingContext {
         take(1),
         map((record) => ({ host: record.name, port: record.port })),
         defaultIfEmpty({ host, port }),
+        catchError(() => of({ host, port })),
         switchMap((record) => this._ping(record.host, record.port)),
       ),
     );
@@ -49,7 +55,7 @@ export class PingContext {
       const connection = connect({
         host,
         port,
-        timeout: this._timeout,
+        timeout: this._socketTimeout,
       })
         .once('connect', () => {
           const handshakePacket = this._strategy!.createHandshakePacket();
@@ -79,6 +85,25 @@ export class PingContext {
       .pipe(
         scan((response, chunk) => Buffer.concat([response, chunk])),
         takeLast(1),
+        retryWhen((errors) => {
+          let retry = false;
+
+          return errors.pipe(
+            mergeMap((err) => {
+              if (retry) return throwError(() => err);
+
+              retry = true;
+
+              this.setStrategy(
+                this._strategy instanceof CurrentPingStrategy ?
+                  new LegacyPingStrategy() :
+                  new CurrentPingStrategy(host, port),
+              );
+
+              return timer(this._retryTimeout);
+            }),
+          );
+        }),
         map((response) => this._strategy!.parse(response)),
         map((response) => {
           const final: IPingResponse = { host, port, ...response };
@@ -95,8 +120,8 @@ export class PingContext {
     return this;
   }
 
-  setTimeout(timeout: number): this {
-    this._timeout = timeout;
+  setTimeout(socketTimeout: number): this {
+    this._socketTimeout = socketTimeout;
     return this;
   }
 }
