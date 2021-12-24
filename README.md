@@ -12,6 +12,17 @@ A observable-based Minecraft server status for Node.js
 
 ## Usage :rocket:
 
+Basic example:
+
+```typescript
+import { PingContext } from 'node-minecraft-status';
+
+const client = new PingContext();
+client.ping('play.hypixel.net').subscribe((response) => console.log(response));
+```
+
+With support legacy protocol:
+
 ```typescript
 import { PingContext } from 'node-minecraft-status';
 
