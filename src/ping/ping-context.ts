@@ -1,6 +1,15 @@
-import { Observable } from 'rxjs';
-import { scan, takeLast, map } from 'rxjs/operators';
-import { connect } from 'net';
+import { iif, Observable } from 'rxjs';
+import {
+  scan,
+  take,
+  takeLast,
+  map,
+  switchMap,
+  defaultIfEmpty,
+} from 'rxjs/operators';
+import { connect, isIP } from 'net';
+
+import { resolveSrv } from '../util';
 
 import { DEFAULT_TIMEOUT, DEFAULT_PORT } from './constants';
 import { PingStrategy } from './ping-strategy';
@@ -19,6 +28,19 @@ export class PingContext {
   ): Observable<IPingResponse> {
     if (!this._strategy) this._strategy = new CurrentPingStrategy(host, port);
 
+    return iif(
+      () => Boolean(isIP(host)),
+      this._ping(host, port),
+      resolveSrv(host).pipe(
+        take(1),
+        map((record) => ({ host: record.name, port: record.port })),
+        defaultIfEmpty({ host, port }),
+        switchMap((record) => this._ping(record.host, record.port)),
+      ),
+    );
+  }
+
+  private _ping(host: string, port: number): Observable<IPingResponse> {
     return new Observable<Buffer>((subscriber) => {
       let error: Error;
 
@@ -36,6 +58,7 @@ export class PingContext {
         })
         .once('close', (hasError) => {
           if (hasError) return subscriber.error(error);
+
           if (connection.bytesRead) return subscriber.complete();
 
           subscriber.error(new Error('Socket has not received data'));
