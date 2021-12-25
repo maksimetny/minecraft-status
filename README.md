@@ -12,6 +12,8 @@ A observable-based Minecraft server status for Node.js
 
 ## Usage :rocket:
 
+### Sample
+
 ```typescript
 import { PingContext } from 'node-minecraft-status';
 
@@ -20,22 +22,6 @@ const client = new PingContext();
 client.ping('hypixel.net')
   .subscribe({
     next(response) {
-      // {
-      //   host            // resolved hostname
-      //   port            // resolved port
-      //   ip              // when received domain name
-      //   version: {
-      //     name
-      //     protocol
-      //   }               // only 1.6+
-      //   players: {
-      //     max
-      //     online
-      //     sample        // only 1.6+
-      //   }
-      //   description
-      //   favicon         // only 1.6+
-      // }
       console.log(response);
     },
     error(err) {
@@ -47,13 +33,64 @@ client.ping('hypixel.net')
   });
 ```
 
+### Ping Client
+
+| Method        | Description                                                                             |
+|---------------|-----------------------------------------------------------------------------------------|
+| `ping`        | Get server information via ping protocol.                                               |
+| `setStrategy` | Set the way to create the handshake package and parse the server response.              |
+| `setTimeout`  | Set socket timeout.                                                                     |
+
+#### ping
+
+| Parameter | Type     | Description                                                        | Required |
+|-----------|----------|--------------------------------------------------------------------|----------|
+| `address` | String   | The server hostname or server hostname with port (`[host]:[port]`) | Yes      |
+| `port`    | Number   | The server port. (defaults: `25565`)                               |          |
+
+#### setStrategy
+
+| Parameter  | Type   | Description               | Required |
+|------------|--------|---------------------------|----------|
+| `strategy` | Object | The instance of strategy. | Yes      |
+
+#### setTimeout
+
+| Parameter  | Type     | Description         | Required |
+|------------|----------|---------------------|----------|
+| `timeout`  | Number   | The socket timeout. | Yes      |
+
+### Ping Response
+
+```typescript
+{
+  host: string,         // resolved hostname
+  port: number,         // resolved port
+  ip?: string,          // when received domain name
+  version?: {
+    name: string,
+    protocol: string,
+  },                    // only 1.6+
+  players: {
+    max: number,
+    online: number,
+    sample?: {
+      id: string,
+      name: string,
+    },                  // only 1.6+
+  },
+  description: string,  // string if < 1.6, if 1.6 < an object like chat (see: https://wiki.vg/Chat)
+  favicon?: string,     // only 1.6+
+}
+```
+
 ## TODO :memo:
 
 - [x] ping
-- [ ] server latency
 - [x] support legacy versions (< 1.6)
-- [ ] formatting response
 - [x] resolving srv records
+- [ ] server latency
+- [ ] formatting response
 - [ ] query
 
 ## License :page_with_curl:
