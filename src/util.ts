@@ -12,3 +12,13 @@ export function resolveSrv(host: string): Observable<SrvRecord> {
     });
   });
 }
+
+export function parseAddress(
+  address: string,
+  defaultPort: number,
+): { host: string, port: number } {
+  const [host, _port = defaultPort.toString()] = address.split(':');
+  const port = parseInt(_port, 10);
+
+  return { host, port };
+}

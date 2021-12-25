@@ -1,4 +1,4 @@
-import { iif, timer, throwError, Observable, of } from 'rxjs';
+import { iif, timer, throwError, of, Observable } from 'rxjs';
 import {
   scan,
   take,
@@ -9,12 +9,13 @@ import {
   defaultIfEmpty,
   retryWhen,
   catchError,
+  tap,
 } from 'rxjs/operators';
 import { connect, isIP } from 'net';
 
-import { resolveSrv } from '../util';
+import { resolveSrv, parseAddress } from '../util';
 
-import { DEFAULT_SOCKET_TIMEOUT, DEFAULT_RETRY_TIMEOUT, DEFAULT_PORT } from './constants';
+import { DEFAULT_PING_SOCKET_TIMEOUT, DEFAULT_PING_RETRY_TIMEOUT, DEFAULT_PING_PORT } from './constants';
 import { PingStrategy } from './ping-strategy';
 import { CurrentPingStrategy } from './current-ping-strategy';
 import { LegacyPingStrategy } from './legacy-ping-strategy';
@@ -23,26 +24,33 @@ import { IPingResponse } from './ping-response';
 export class PingContext {
   constructor(
     private _strategy?: PingStrategy,
-    private _socketTimeout = DEFAULT_SOCKET_TIMEOUT,
-    private _retryTimeout = DEFAULT_RETRY_TIMEOUT,
+    private _socketTimeout = DEFAULT_PING_SOCKET_TIMEOUT,
+    private _retryTimeout = DEFAULT_PING_RETRY_TIMEOUT,
   ) { }
 
+  ping(address: string): Observable<IPingResponse>;
+  ping(host: string, port?: number): Observable<IPingResponse>;
   ping(
-    host: string,
-    port: number = DEFAULT_PORT,
+    address: string,
+    port = DEFAULT_PING_PORT,
   ): Observable<IPingResponse> {
-    if (!this._strategy) this._strategy = new CurrentPingStrategy(host, port);
-
-    return iif(
-      () => Boolean(isIP(host)),
-      this._ping(host, port),
-      resolveSrv(host).pipe(
-        take(1),
-        map((record) => ({ host: record.name, port: record.port })),
-        defaultIfEmpty({ host, port }),
-        catchError(() => of({ host, port })),
-        switchMap((record) => this._ping(record.host, record.port)),
-      ),
+    return of(parseAddress(address, port)).pipe(
+      tap((address) => {
+        if (!this._strategy) this._strategy = new CurrentPingStrategy(address.host, address.port);
+      }),
+      mergeMap(({ host, port }) => {
+        return iif(
+          () => Boolean(isIP(host)),
+          this._ping(host, port),
+          resolveSrv(host).pipe(
+            take(1),
+            map((record) => ({ host: record.name, port: record.port })),
+            defaultIfEmpty({ host, port }),
+            catchError(() => of({ host, port })),
+            switchMap((record) => this._ping(record.host, record.port)),
+          ),
+        );
+      }),
     );
   }
 

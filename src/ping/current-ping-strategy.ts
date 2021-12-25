@@ -1,6 +1,6 @@
 import { encode, encodingLength } from 'varint';
 
-import { DEFAULT_PROTOCOL } from './constants';
+import { DEFAULT_PING_PROTOCOL } from './constants';
 import { PingStrategy } from './ping-strategy';
 import { IRawPingResponse } from './ping-response';
 
@@ -8,7 +8,7 @@ export class CurrentPingStrategy extends PingStrategy {
   constructor(
     private _host: string,
     private _port: number,
-    private _protocol: number = DEFAULT_PROTOCOL,
+    private _protocol: number = DEFAULT_PING_PROTOCOL,
   ) {
     super();
   }
