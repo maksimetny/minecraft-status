@@ -6,6 +6,12 @@
 
 A observable-based Minecraft server status for Node.js
 
+## Features :dizzy:
+
+1) Supports current and legacy Minecraft protocol
+2) Resolves service (`SRV`) record
+3) Auto-retry with other strategy on error
+
 ## Installing :package:
 
 `npm i node-minecraft-status`
@@ -43,10 +49,10 @@ client.ping('hypixel.net')
 
 #### ping
 
-| Parameter | Type     | Description                                                        | Required |
-|-----------|----------|--------------------------------------------------------------------|----------|
-| `address` | String   | The server hostname or server hostname with port (`[host]:[port]`) | Yes      |
-| `port`    | Number   | The server port. (defaults: `25565`)                               |          |
+| Parameter | Type     | Description                                                         | Required |
+|-----------|----------|---------------------------------------------------------------------|----------|
+| `address` | String   | The server hostname or server hostname with port (`[host]:[port]`). | Yes      |
+| `port`    | Number   | The server port (defaults: `25565`).                                |          |
 
 #### setStrategy
 
